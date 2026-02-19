@@ -35,33 +35,40 @@ router.post('/abandoned-cart', async (req, res) => {
     checkout_url,
   });
 
-  // Business hours guard
-  const timezone = getTimezone(customer_state);
-  if (!isWithinCallingHours(timezone)) {
-    const scheduledFor = getNextCallingWindow(timezone);
-    await scheduleCall(callRecord.id, scheduledFor.toISOString(), timezone);
-    console.log(`Call for ${customer_name} (${customer_phone}) scheduled for ${scheduledFor.toISOString()} (${timezone})`);
-    return res.status(200).json({ success: true, callId: callRecord.id, scheduled: true, scheduledFor: scheduledFor.toISOString() });
-  }
+  // COLLECT-ONLY MODE: Save abandoned cart but do NOT call yet
+  // When ready to enable calls, set ENABLE_OUTBOUND_CALLS=true in env vars
+  if (process.env.ENABLE_OUTBOUND_CALLS === 'true') {
+    // Business hours guard
+    const timezone = getTimezone(customer_state);
+    if (!isWithinCallingHours(timezone)) {
+      const scheduledFor = getNextCallingWindow(timezone);
+      await scheduleCall(callRecord.id, scheduledFor.toISOString(), timezone);
+      console.log(`Call for ${customer_name} (${customer_phone}) scheduled for ${scheduledFor.toISOString()} (${timezone})`);
+      return res.status(200).json({ success: true, callId: callRecord.id, scheduled: true, scheduledFor: scheduledFor.toISOString() });
+    }
 
-  try {
-    // Trigger Vapi outbound call
-    const vapiCall = await createOutboundCall({
-      customerPhone: customer_phone,
-      customerName: customer_name,
-      cartItems: cart_items || [],
-      cartTotal: cart_total,
-      checkoutUrl: checkout_url,
-    });
+    try {
+      // Trigger Vapi outbound call
+      const vapiCall = await createOutboundCall({
+        customerPhone: customer_phone,
+        customerName: customer_name,
+        cartItems: cart_items || [],
+        cartTotal: cart_total,
+        checkoutUrl: checkout_url,
+      });
 
-    await updateCallStatus(callRecord.id, 'in_progress', vapiCall.id);
+      await updateCallStatus(callRecord.id, 'in_progress', vapiCall.id);
 
-    console.log(`Call initiated for ${customer_name} (${customer_phone}) — Vapi call: ${vapiCall.id}`);
-    res.status(200).json({ success: true, callId: callRecord.id, vapiCallId: vapiCall.id });
-  } catch (err) {
-    console.error(`Failed to create Vapi call for ${customer_phone}:`, err.message);
-    await updateCallStatus(callRecord.id, 'failed', null);
-    res.status(500).json({ error: 'Failed to initiate call' });
+      console.log(`Call initiated for ${customer_name} (${customer_phone}) — Vapi call: ${vapiCall.id}`);
+      res.status(200).json({ success: true, callId: callRecord.id, vapiCallId: vapiCall.id });
+    } catch (err) {
+      console.error(`Failed to create Vapi call for ${customer_phone}:`, err.message);
+      await updateCallStatus(callRecord.id, 'failed', null);
+      res.status(500).json({ error: 'Failed to initiate call' });
+    }
+  } else {
+    console.log(`Cart collected for ${customer_name} (${customer_phone}) — $${cart_total} — calls disabled`);
+    res.status(200).json({ success: true, callId: callRecord.id, collectOnly: true });
   }
 });
 
