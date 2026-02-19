@@ -9,6 +9,7 @@ const vapiWebhook = require('./routes/vapiWebhook');
 const smsTool = require('./routes/smsTool');
 const dashboard = require('./routes/dashboard');
 const shopifyOrderWebhook = require('./routes/shopifyOrderWebhook');
+const shopifyAbandonedWebhook = require('./routes/shopifyAbandonedWebhook');
 const { startScheduler } = require('./services/scheduler');
 
 // DB init middleware — only runs on webhook routes
@@ -64,6 +65,7 @@ function createApp() {
   app.use('/api/webhook', ensureDb, vapiWebhook);
   app.use('/api/webhook', ensureDb, smsTool);
   app.use('/api/webhook', ensureDb, shopifyOrderWebhook);
+  app.use('/api/webhook', ensureDb, shopifyAbandonedWebhook);
 
   return app;
 }
