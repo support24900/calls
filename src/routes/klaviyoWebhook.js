@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { createOutboundCall } = require('../services/vapi');
-const { createCallRecord, getRecentCallByPhone, updateCallStatus } = require('../db/calls');
+const { createCallRecord, getRecentCallByPhone, updateCallStatus, scheduleCall } = require('../db/calls');
+const { getTimezone, isWithinCallingHours, getNextCallingWindow } = require('../services/businessHours');
 
 router.post('/abandoned-cart', async (req, res) => {
   // Validate webhook secret
@@ -10,7 +11,7 @@ router.post('/abandoned-cart', async (req, res) => {
     return res.status(401).json({ error: 'Invalid webhook secret' });
   }
 
-  const { customer_phone, customer_email, customer_name, cart_total, cart_items, checkout_url } = req.body;
+  const { customer_phone, customer_email, customer_name, cart_total, cart_items, checkout_url, customer_state } = req.body;
 
   // Validate required fields
   if (!customer_phone) {
@@ -33,6 +34,15 @@ router.post('/abandoned-cart', async (req, res) => {
     items_json: JSON.stringify(cart_items || []),
     checkout_url,
   });
+
+  // Business hours guard
+  const timezone = getTimezone(customer_state);
+  if (!isWithinCallingHours(timezone)) {
+    const scheduledFor = getNextCallingWindow(timezone);
+    await scheduleCall(callRecord.id, scheduledFor.toISOString(), timezone);
+    console.log(`Call for ${customer_name} (${customer_phone}) scheduled for ${scheduledFor.toISOString()} (${timezone})`);
+    return res.status(200).json({ success: true, callId: callRecord.id, scheduled: true, scheduledFor: scheduledFor.toISOString() });
+  }
 
   try {
     // Trigger Vapi outbound call

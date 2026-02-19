@@ -10,6 +10,12 @@ jest.mock('../../src/db/calls', () => ({
   getRecentCallByPhone: jest.fn().mockResolvedValue(null),
   createCallRecord: jest.fn().mockResolvedValue({ id: 1 }),
   updateCallStatus: jest.fn().mockResolvedValue(undefined),
+  scheduleCall: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../../src/services/businessHours', () => ({
+  getTimezone: jest.fn().mockReturnValue('America/New_York'),
+  isWithinCallingHours: jest.fn().mockReturnValue(true),
+  getNextCallingWindow: jest.fn().mockReturnValue(new Date('2026-02-20T14:00:00Z')),
 }));
 
 const klaviyoWebhook = require('../../src/routes/klaviyoWebhook');
