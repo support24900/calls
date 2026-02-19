@@ -3,7 +3,7 @@ const express = require('express');
 const request = require('supertest');
 
 jest.mock('../../src/db/calls', () => ({
-  updateCallOutcome: jest.fn(),
+  updateCallOutcome: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../../src/services/klaviyo', () => ({
   updateProfileWithCallOutcome: jest.fn().mockResolvedValue(undefined),

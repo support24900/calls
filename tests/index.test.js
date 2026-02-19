@@ -4,14 +4,15 @@ const request = require('supertest');
 // Mock all dependencies before requiring the app
 jest.mock('../src/db/database', () => ({
   getDb: jest.fn().mockReturnValue({}),
+  initDb: jest.fn().mockResolvedValue({}),
   closeDb: jest.fn(),
 }));
 jest.mock('../src/db/calls', () => ({
-  createCallRecord: jest.fn().mockReturnValue({ id: 1 }),
-  getCallById: jest.fn(),
-  getRecentCallByPhone: jest.fn().mockReturnValue(null),
-  updateCallStatus: jest.fn(),
-  updateCallOutcome: jest.fn(),
+  createCallRecord: jest.fn().mockResolvedValue({ id: 1 }),
+  getCallById: jest.fn().mockResolvedValue(null),
+  getRecentCallByPhone: jest.fn().mockResolvedValue(null),
+  updateCallStatus: jest.fn().mockResolvedValue(undefined),
+  updateCallOutcome: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../src/services/vapi', () => ({
   createOutboundCall: jest.fn().mockResolvedValue({ id: 'call_test', status: 'queued' }),

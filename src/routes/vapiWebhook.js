@@ -1,4 +1,3 @@
-// src/routes/vapiWebhook.js
 const express = require('express');
 const router = express.Router();
 const { updateCallOutcome } = require('../db/calls');
@@ -34,7 +33,7 @@ router.post('/call-status', async (req, res) => {
 
   // Update local database
   if (vapiCallId) {
-    updateCallOutcome(vapiCallId, {
+    await updateCallOutcome(vapiCallId, {
       outcome,
       transcript: transcript || '',
       duration_seconds: durationSeconds || 0,

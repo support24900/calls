@@ -7,9 +7,9 @@ jest.mock('../../src/services/vapi', () => ({
   createOutboundCall: jest.fn().mockResolvedValue({ id: 'call_test123', status: 'queued' }),
 }));
 jest.mock('../../src/db/calls', () => ({
-  getRecentCallByPhone: jest.fn().mockReturnValue(null),
-  createCallRecord: jest.fn().mockReturnValue({ id: 1 }),
-  updateCallStatus: jest.fn(),
+  getRecentCallByPhone: jest.fn().mockResolvedValue(null),
+  createCallRecord: jest.fn().mockResolvedValue({ id: 1 }),
+  updateCallStatus: jest.fn().mockResolvedValue(undefined),
 }));
 
 const klaviyoWebhook = require('../../src/routes/klaviyoWebhook');
@@ -69,7 +69,7 @@ describe('POST /api/webhook/abandoned-cart', () => {
   });
 
   test('returns 200 with skipped message if already called recently', async () => {
-    getRecentCallByPhone.mockReturnValueOnce({ id: 99 });
+    getRecentCallByPhone.mockResolvedValueOnce({ id: 99 });
     const app = createApp();
     const res = await request(app)
       .post('/api/webhook/abandoned-cart')
