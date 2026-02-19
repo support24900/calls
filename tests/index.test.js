@@ -34,6 +34,7 @@ describe('Express server', () => {
 
   beforeAll(() => {
     process.env.KLAVIYO_WEBHOOK_SECRET = 'test-secret';
+    process.env.TURSO_DATABASE_URL = 'file::memory:';
     app = createApp();
   });
 
