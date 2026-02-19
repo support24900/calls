@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const path = require('path');
 const { initDb } = require('./db/database');
 const klaviyoWebhook = require('./routes/klaviyoWebhook');
 const vapiWebhook = require('./routes/vapiWebhook');
@@ -29,13 +30,9 @@ function createApp() {
 
   app.use(express.json());
 
-  // These work without database
+  // Landing page
   app.get('/', (req, res) => {
-    res.json({
-      name: 'Mirai Skin Abandoned Cart Agent',
-      status: 'running',
-      endpoints: ['/health', '/api/webhook/abandoned-cart', '/api/webhook/call-status', '/api/webhook/send-sms'],
-    });
+    res.sendFile(path.join(__dirname, 'pages', 'landing.html'));
   });
 
   app.get('/health', (req, res) => {
