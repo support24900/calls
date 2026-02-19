@@ -1,127 +1,102 @@
 const express = require('express');
 const router = express.Router();
 
-// Vapi server-side tool: create a personalized Shopify discount code
+// Vapi server-side tool: create a personalized Shopify discount code via GraphQL
 router.post('/create-discount', async (req, res) => {
   try {
-    // Vapi sends tool calls in message format
     const toolCall = req.body?.message?.toolCalls?.[0];
     const args = toolCall?.function?.arguments || req.body;
     
     const customerName = (args.customerName || 'CUSTOMER').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    const discountPercent = Math.min(Math.max(parseInt(args.discountPercent) || 15, 5), 25); // 5-25% range
     const cartTotal = parseFloat(args.cartTotal) || 0;
     
-    // Generate unique code: MIRAI-{NAME}-{PERCENT}-{RANDOM}
-    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const code = `MIRAI-${customerName.substring(0, 8)}-${discountPercent}-${randomPart}`;
-    
-    // Determine discount logic:
-    // Cart > $100: up to 20%
-    // Cart > $75: up to 15%  
-    // Cart > $50: up to 12%
-    // Cart < $50: up to 10%
+    // Smart discount tiers based on cart value
     let maxDiscount = 10;
-    if (cartTotal >= 100) maxDiscount = 20;
+    if (cartTotal >= 150) maxDiscount = 25;
+    else if (cartTotal >= 100) maxDiscount = 20;
     else if (cartTotal >= 75) maxDiscount = 15;
     else if (cartTotal >= 50) maxDiscount = 12;
     
-    const finalPercent = Math.min(discountPercent, maxDiscount);
-    const finalCode = `MIRAI-${customerName.substring(0, 8)}-${finalPercent}-${randomPart}`;
+    const requestedPercent = Math.min(Math.max(parseInt(args.discountPercent) || 15, 5), 25);
+    const finalPercent = Math.min(requestedPercent, maxDiscount);
     
-    // Create discount via Shopify Admin API
-    // Extract store name from various URL formats
-    let storeUrl;
+    const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const code = `MIRAI-${customerName.substring(0, 8)}-${finalPercent}-${randomPart}`;
+    
+    // Parse store URL
     const envUrl = process.env.SHOPIFY_STORE_URL || '';
     const storeMatch = envUrl.match(/store\/([^\/]+)/) || envUrl.match(/([^.]+)\.myshopify/);
     const storeName = storeMatch ? storeMatch[1] : '9dkd2w-g3';
-    storeUrl = `https://${storeName}.myshopify.com`;
+    const storeUrl = `https://${storeName}.myshopify.com`;
     
-    const discountPayload = {
-      price_rule: {
-        title: finalCode,
-        target_type: "line_item",
-        target_selection: "all",
-        allocation_method: "across",
-        value_type: "percentage",
-        value: `-${finalPercent}`,
-        customer_selection: "all",
-        usage_limit: 1,
-        once_per_customer: true,
-        starts_at: new Date().toISOString(),
-        ends_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(), // 72 hours
+    const startsAt = new Date().toISOString();
+    const endsAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+    
+    const mutation = `mutation {
+      discountCodeBasicCreate(basicCodeDiscount: {
+        title: "${code}"
+        code: "${code}"
+        startsAt: "${startsAt}"
+        endsAt: "${endsAt}"
+        usageLimit: 1
+        customerGets: {
+          value: { percentage: ${finalPercent / 100} }
+          items: { all: true }
+        }
+        customerSelection: { all: true }
+      }) {
+        codeDiscountNode {
+          id
+          codeDiscount {
+            ... on DiscountCodeBasic {
+              title
+              codes(first: 1) { nodes { code } }
+            }
+          }
+        }
+        userErrors { field message }
       }
-    };
+    }`;
     
-    // Step 1: Create price rule
-    const priceRuleRes = await fetch(`${storeUrl}/admin/api/2024-01/price_rules.json`, {
+    const gqlRes = await fetch(`${storeUrl}/admin/api/2024-01/graphql.json`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
       },
-      body: JSON.stringify(discountPayload),
+      body: JSON.stringify({ query: mutation }),
     });
     
-    if (!priceRuleRes.ok) {
-      const err = await priceRuleRes.text();
-      console.error('Shopify price rule error:', err);
-      // Fall back to a generic code
-      return res.json({
-        results: [{
-          toolCallId: toolCall?.id,
-          result: JSON.stringify({
-            success: false,
-            fallbackCode: 'welcome10',
-            fallbackPercent: 10,
-            message: `I wasn't able to create a custom code, but you can use welcome10 for 10% off!`
-          })
-        }]
-      });
+    if (!gqlRes.ok) {
+      throw new Error(`Shopify API error: ${gqlRes.status}`);
     }
     
-    const priceRule = await priceRuleRes.json();
-    const priceRuleId = priceRule.price_rule.id;
+    const gqlData = await gqlRes.json();
+    const userErrors = gqlData?.data?.discountCodeBasicCreate?.userErrors || [];
     
-    // Step 2: Create discount code for this price rule
-    const discountCodeRes = await fetch(`${storeUrl}/admin/api/2024-01/price_rules/${priceRuleId}/discount_codes.json`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
-      },
-      body: JSON.stringify({
-        discount_code: { code: finalCode }
-      }),
-    });
-    
-    if (!discountCodeRes.ok) {
-      const err = await discountCodeRes.text();
-      console.error('Shopify discount code error:', err);
-      return res.json({
-        results: [{
-          toolCallId: toolCall?.id,
-          result: JSON.stringify({
-            success: false,
-            fallbackCode: 'welcome10',
-            fallbackPercent: 10,
-            message: `I wasn't able to create a custom code, but you can use welcome10 for 10% off!`
-          })
-        }]
-      });
+    if (userErrors.length > 0) {
+      console.error('Shopify discount errors:', JSON.stringify(userErrors));
+      throw new Error(userErrors[0].message);
     }
     
-    console.log(`Discount created: ${finalCode} (${finalPercent}% off) for ${customerName}, cart $${cartTotal}`);
+    const createdCode = gqlData?.data?.discountCodeBasicCreate?.codeDiscountNode?.codeDiscount?.codes?.nodes?.[0]?.code || code;
+    
+    console.log(`Discount created: ${createdCode} (${finalPercent}% off) for ${customerName}, cart $${cartTotal}`);
+    
+    const savedAmount = (cartTotal * finalPercent / 100).toFixed(2);
+    const newTotal = (cartTotal - parseFloat(savedAmount)).toFixed(2);
     
     res.json({
       results: [{
         toolCallId: toolCall?.id,
         result: JSON.stringify({
           success: true,
-          code: finalCode,
+          code: createdCode,
           percent: finalPercent,
+          savedAmount,
+          newTotal,
           expiresIn: '72 hours',
-          message: `Great news! I've created a special ${finalPercent}% discount just for you! Your code is ${finalCode}. It's valid for the next 72 hours.`
+          message: `Great news! I've created a special ${finalPercent}% discount just for you! Your code is ${createdCode}. That saves you $${savedAmount}, bringing your total to $${newTotal}. It's valid for the next 72 hours!`
         })
       }]
     });
