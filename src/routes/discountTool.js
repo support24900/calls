@@ -30,8 +30,12 @@ router.post('/create-discount', async (req, res) => {
     const finalCode = `MIRAI-${customerName.substring(0, 8)}-${finalPercent}-${randomPart}`;
     
     // Create discount via Shopify Admin API
-    const shopifyUrl = process.env.SHOPIFY_STORE_URL || 'https://9dkd2w-g3.myshopify.com';
-    const storeUrl = shopifyUrl.includes('myshopify.com') ? shopifyUrl : 'https://9dkd2w-g3.myshopify.com';
+    // Extract store name from various URL formats
+    let storeUrl;
+    const envUrl = process.env.SHOPIFY_STORE_URL || '';
+    const storeMatch = envUrl.match(/store\/([^\/]+)/) || envUrl.match(/([^.]+)\.myshopify/);
+    const storeName = storeMatch ? storeMatch[1] : '9dkd2w-g3';
+    storeUrl = `https://${storeName}.myshopify.com`;
     
     const discountPayload = {
       price_rule: {
