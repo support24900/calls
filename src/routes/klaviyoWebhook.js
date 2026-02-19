@@ -1,0 +1,59 @@
+// src/routes/klaviyoWebhook.js
+const express = require('express');
+const router = express.Router();
+const { createOutboundCall } = require('../services/vapi');
+const { createCallRecord, getRecentCallByPhone, updateCallStatus } = require('../db/calls');
+
+router.post('/abandoned-cart', async (req, res) => {
+  // Validate webhook secret
+  const secret = req.headers['x-klaviyo-webhook-secret'];
+  if (secret !== process.env.KLAVIYO_WEBHOOK_SECRET) {
+    return res.status(401).json({ error: 'Invalid webhook secret' });
+  }
+
+  const { customer_phone, customer_email, customer_name, cart_total, cart_items, checkout_url } = req.body;
+
+  // Validate required fields
+  if (!customer_phone) {
+    return res.status(400).json({ error: 'customer_phone is required' });
+  }
+
+  // Dedup: skip if already called in last 24 hours
+  const recentCall = getRecentCallByPhone(customer_phone);
+  if (recentCall) {
+    console.log(`Skipping call to ${customer_phone} — already called recently (call #${recentCall.id})`);
+    return res.status(200).json({ skipped: true, reason: 'already_called_recently' });
+  }
+
+  // Create call record
+  const callRecord = createCallRecord({
+    customer_phone,
+    customer_email,
+    customer_name,
+    cart_total,
+    items_json: JSON.stringify(cart_items || []),
+    checkout_url,
+  });
+
+  try {
+    // Trigger Vapi outbound call
+    const vapiCall = await createOutboundCall({
+      customerPhone: customer_phone,
+      customerName: customer_name,
+      cartItems: cart_items || [],
+      cartTotal: cart_total,
+      checkoutUrl: checkout_url,
+    });
+
+    updateCallStatus(callRecord.id, 'in_progress', vapiCall.id);
+
+    console.log(`Call initiated for ${customer_name} (${customer_phone}) — Vapi call: ${vapiCall.id}`);
+    res.status(200).json({ success: true, callId: callRecord.id, vapiCallId: vapiCall.id });
+  } catch (err) {
+    console.error(`Failed to create Vapi call for ${customer_phone}:`, err.message);
+    updateCallStatus(callRecord.id, 'failed', null);
+    res.status(500).json({ error: 'Failed to initiate call' });
+  }
+});
+
+module.exports = router;
