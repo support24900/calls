@@ -4,9 +4,19 @@ const request = require('supertest');
 
 jest.mock('../../src/db/calls', () => ({
   updateCallOutcome: jest.fn().mockResolvedValue(undefined),
+  getCallById: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('../../src/db/database', () => ({
+  getDb: jest.fn().mockReturnValue({
+    execute: jest.fn().mockResolvedValue({ rows: [] }),
+  }),
 }));
 jest.mock('../../src/services/klaviyo', () => ({
   updateProfileWithCallOutcome: jest.fn().mockResolvedValue(undefined),
+  triggerKlaviyoEvent: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../../src/services/twilio', () => ({
+  sendCheckoutLink: jest.fn().mockResolvedValue({ sid: 'SM_test' }),
 }));
 
 const vapiWebhook = require('../../src/routes/vapiWebhook');
