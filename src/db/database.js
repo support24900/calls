@@ -1,4 +1,4 @@
-const { createClient } = require('@libsql/client/web');
+const { createClient } = require('@libsql/client');
 
 let db;
 
