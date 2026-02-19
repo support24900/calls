@@ -1,0 +1,71 @@
+<% var title = 'Call Log'; %>
+<%- include('layout-head') %>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Call Log</h1>
+
+<form method="GET" class="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4 items-end">
+  <div>
+    <label class="block text-sm text-gray-600 mb-1">Outcome</label>
+    <select name="outcome" class="border rounded px-3 py-2 text-sm">
+      <option value="">All</option>
+      <% ['sale_recovered','no_answer','voicemail','not_interested'].forEach(function(o) { %>
+        <option value="<%= o %>" <%= filters.outcome === o ? 'selected' : '' %>><%= o.replace(/_/g, ' ') %></option>
+      <% }); %>
+    </select>
+  </div>
+  <div>
+    <label class="block text-sm text-gray-600 mb-1">From</label>
+    <input type="date" name="dateFrom" value="<%= filters.dateFrom || '' %>" class="border rounded px-3 py-2 text-sm">
+  </div>
+  <div>
+    <label class="block text-sm text-gray-600 mb-1">To</label>
+    <input type="date" name="dateTo" value="<%= filters.dateTo || '' %>" class="border rounded px-3 py-2 text-sm">
+  </div>
+  <button type="submit" class="bg-pink-600 text-white px-4 py-2 rounded text-sm hover:bg-pink-700">Filter</button>
+</form>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600">
+      <tr>
+        <th class="text-left px-4 py-3">Customer</th>
+        <th class="text-left px-4 py-3">Phone</th>
+        <th class="text-right px-4 py-3">Cart Total</th>
+        <th class="text-left px-4 py-3">Outcome</th>
+        <th class="text-right px-4 py-3">Duration</th>
+        <th class="text-right px-4 py-3">Revenue</th>
+        <th class="text-left px-4 py-3">Date</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y">
+      <% if (calls.length === 0) { %>
+        <tr><td colspan="7" class="text-center py-8 text-gray-400">No calls found</td></tr>
+      <% } %>
+      <% calls.forEach(function(call) { %>
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3"><a href="/dashboard/calls/<%= call.id %>" class="text-pink-600 hover:underline"><%= call.customer_name || 'Unknown' %></a></td>
+          <td class="px-4 py-3 text-gray-600"><%= call.customer_phone %></td>
+          <td class="px-4 py-3 text-right">$<%= call.cart_total ? Number(call.cart_total).toFixed(2) : '0.00' %></td>
+          <td class="px-4 py-3">
+            <% if (call.outcome === 'sale_recovered') { %>
+              <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">recovered</span>
+            <% } else if (call.outcome === 'no_answer') { %>
+              <span class="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-medium">no answer</span>
+            <% } else if (call.outcome === 'voicemail') { %>
+              <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">voicemail</span>
+            <% } else if (call.outcome) { %>
+              <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium"><%= call.outcome.replace(/_/g, ' ') %></span>
+            <% } else { %>
+              <span class="bg-gray-100 text-gray-400 px-2 py-1 rounded text-xs font-medium"><%= call.status %></span>
+            <% } %>
+          </td>
+          <td class="px-4 py-3 text-right text-gray-600"><%= call.duration_seconds ? call.duration_seconds + 's' : '—' %></td>
+          <td class="px-4 py-3 text-right"><%= call.revenue_recovered ? '$' + Number(call.revenue_recovered).toFixed(2) : '—' %></td>
+          <td class="px-4 py-3 text-gray-600"><%= call.created_at ? new Date(call.created_at).toLocaleDateString() : '' %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
+
+<%- include('layout-foot') %>

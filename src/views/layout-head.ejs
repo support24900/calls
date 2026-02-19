@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mirai Skin — <%= typeof title !== 'undefined' ? title : 'Dashboard' %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <nav class="bg-white shadow-sm border-b">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-6">
+        <span class="text-lg font-bold text-pink-600">🌸 Mirai Skin</span>
+        <a href="/dashboard" class="text-gray-600 hover:text-gray-900">Overview</a>
+        <a href="/dashboard/calls" class="text-gray-600 hover:text-gray-900">Calls</a>
+      </div>
+      <a href="/dashboard/logout" class="text-sm text-gray-500 hover:text-gray-700">Logout</a>
+    </div>
+  </nav>
+  <main class="max-w-7xl mx-auto px-4 py-8">

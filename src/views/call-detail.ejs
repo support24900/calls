@@ -1,0 +1,59 @@
+<% var title = 'Call #' + call.id; %>
+<%- include('layout-head') %>
+
+<div class="mb-4">
+  <a href="/dashboard/calls" class="text-pink-600 hover:underline text-sm">← Back to calls</a>
+</div>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Call #<%= call.id %> — <%= call.customer_name || 'Unknown' %></h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+  <div class="bg-white rounded-lg shadow p-6">
+    <h2 class="font-semibold text-gray-700 mb-4">Customer Info</h2>
+    <dl class="space-y-2 text-sm">
+      <div class="flex justify-between"><dt class="text-gray-500">Name</dt><dd><%= call.customer_name || '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Phone</dt><dd><%= call.customer_phone %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Email</dt><dd><%= call.customer_email || '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Timezone</dt><dd><%= call.customer_timezone || '—' %></dd></div>
+    </dl>
+  </div>
+  <div class="bg-white rounded-lg shadow p-6">
+    <h2 class="font-semibold text-gray-700 mb-4">Call Details</h2>
+    <dl class="space-y-2 text-sm">
+      <div class="flex justify-between"><dt class="text-gray-500">Status</dt><dd><%= call.status %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Outcome</dt><dd><%= call.outcome || '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Duration</dt><dd><%= call.duration_seconds ? call.duration_seconds + 's' : '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Cart Total</dt><dd>$<%= call.cart_total ? Number(call.cart_total).toFixed(2) : '0.00' %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Revenue Recovered</dt><dd><%= call.revenue_recovered ? '$' + Number(call.revenue_recovered).toFixed(2) : '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Discount Code</dt><dd><%= call.discount_code || '—' %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Created</dt><dd><%= call.created_at %></dd></div>
+      <div class="flex justify-between"><dt class="text-gray-500">Converted</dt><dd><%= call.converted_at || '—' %></dd></div>
+    </dl>
+  </div>
+</div>
+
+<% if (call.items_json) { %>
+  <div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h2 class="font-semibold text-gray-700 mb-4">Cart Items</h2>
+    <% try { var items = JSON.parse(call.items_json); %>
+      <ul class="space-y-2 text-sm">
+        <% items.forEach(function(item) { %>
+          <li class="flex justify-between"><span><%= item.title %> × <%= item.quantity %></span><span>$<%= item.price %></span></li>
+        <% }); %>
+      </ul>
+    <% } catch(e) { %>
+      <pre class="text-xs text-gray-500"><%= call.items_json %></pre>
+    <% } %>
+  </div>
+<% } %>
+
+<div class="bg-white rounded-lg shadow p-6">
+  <h2 class="font-semibold text-gray-700 mb-4">Transcript</h2>
+  <% if (call.transcript) { %>
+    <pre class="text-sm text-gray-700 whitespace-pre-wrap"><%= call.transcript %></pre>
+  <% } else { %>
+    <p class="text-gray-400">No transcript available</p>
+  <% } %>
+</div>
+
+<%- include('layout-foot') %>

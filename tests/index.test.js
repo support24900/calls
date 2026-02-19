@@ -13,6 +13,12 @@ jest.mock('../src/db/calls', () => ({
   getRecentCallByPhone: jest.fn().mockResolvedValue(null),
   updateCallStatus: jest.fn().mockResolvedValue(undefined),
   updateCallOutcome: jest.fn().mockResolvedValue(undefined),
+  getAllCalls: jest.fn().mockResolvedValue([]),
+  getDashboardStats: jest.fn().mockResolvedValue({ totalCalls: 0, completedCalls: 0, recoveredCalls: 0, revenueRecovered: 0, callsToday: 0, dailyCalls: [] }),
+  getRecentCallByEmailOrPhone: jest.fn().mockResolvedValue([]),
+  updateCallConversion: jest.fn().mockResolvedValue(undefined),
+  getScheduledCalls: jest.fn().mockResolvedValue([]),
+  scheduleCall: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../src/services/vapi', () => ({
   createOutboundCall: jest.fn().mockResolvedValue({ id: 'call_test', status: 'queued' }),
@@ -22,9 +28,19 @@ jest.mock('../src/services/twilio', () => ({
 }));
 jest.mock('../src/services/klaviyo', () => ({
   updateProfileWithCallOutcome: jest.fn().mockResolvedValue(undefined),
+  triggerKlaviyoEvent: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../src/services/shopify', () => ({
   createDiscountCode: jest.fn().mockResolvedValue('MIRAI-TEST'),
+}));
+jest.mock('../src/services/scheduler', () => ({
+  startScheduler: jest.fn(),
+  stopScheduler: jest.fn(),
+}));
+jest.mock('../src/services/businessHours', () => ({
+  getTimezone: jest.fn().mockReturnValue('America/New_York'),
+  isWithinCallingHours: jest.fn().mockReturnValue(true),
+  getNextCallingWindow: jest.fn().mockReturnValue(new Date()),
 }));
 
 const { createApp } = require('../src/index');

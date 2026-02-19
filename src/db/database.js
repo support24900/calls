@@ -29,10 +29,26 @@ async function initDb() {
       outcome TEXT,
       transcript TEXT,
       duration_seconds INTEGER,
+      revenue_recovered REAL,
+      converted_at DATETIME,
+      scheduled_for DATETIME,
+      customer_timezone TEXT,
       created_at DATETIME DEFAULT (datetime('now')),
       updated_at DATETIME DEFAULT (datetime('now'))
     )
   `);
+
+  // Migration: add new columns to existing tables
+  const migrations = [
+    'ALTER TABLE calls ADD COLUMN revenue_recovered REAL',
+    'ALTER TABLE calls ADD COLUMN converted_at DATETIME',
+    'ALTER TABLE calls ADD COLUMN scheduled_for DATETIME',
+    'ALTER TABLE calls ADD COLUMN customer_timezone TEXT',
+  ];
+  for (const sql of migrations) {
+    try { await client.execute(sql); } catch (_) { /* column already exists */ }
+  }
+
   return client;
 }
 

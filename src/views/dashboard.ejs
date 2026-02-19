@@ -1,0 +1,44 @@
+<% var title = 'Dashboard'; %>
+<%- include('layout-head') %>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">Dashboard Overview</h1>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white rounded-lg shadow p-6">
+    <div class="text-sm text-gray-500">Total Calls</div>
+    <div class="text-3xl font-bold text-gray-800"><%= stats.totalCalls %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-6">
+    <div class="text-sm text-gray-500">Recovery Rate</div>
+    <div class="text-3xl font-bold text-green-600"><%= recoveryRate %>%</div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-6">
+    <div class="text-sm text-gray-500">Revenue Recovered</div>
+    <div class="text-3xl font-bold text-pink-600">$<%= Number(stats.revenueRecovered).toFixed(2) %></div>
+  </div>
+  <div class="bg-white rounded-lg shadow p-6">
+    <div class="text-sm text-gray-500">Calls Today</div>
+    <div class="text-3xl font-bold text-gray-800"><%= stats.callsToday %></div>
+  </div>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6">
+  <h2 class="text-lg font-semibold text-gray-700 mb-4">Daily Calls (Last 30 Days)</h2>
+  <% if (stats.dailyCalls.length > 0) { %>
+    <div class="flex items-end gap-1 h-40">
+      <% var maxCount = Math.max(...stats.dailyCalls.map(function(d) { return d.count; }), 1); %>
+      <% stats.dailyCalls.forEach(function(day) { %>
+        <div class="flex-1 bg-pink-400 rounded-t hover:bg-pink-500 transition-colors relative group"
+             style="height: <%= (day.count / maxCount * 100) %>%">
+          <div class="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded hidden group-hover:block whitespace-nowrap">
+            <%= day.day %>: <%= day.count %> calls
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <p class="text-gray-400 text-center py-8">No call data yet</p>
+  <% } %>
+</div>
+
+<%- include('layout-foot') %>
