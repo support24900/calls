@@ -28,6 +28,7 @@
             <th class="text-right px-5 py-3 text-gray-500 font-medium">Orders</th>
             <th class="text-right px-5 py-3 text-gray-500 font-medium">Total Spent</th>
             <th class="text-left px-5 py-3 text-gray-500 font-medium">Last Order</th>
+            <th class="text-center px-5 py-3 text-gray-500 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y">
@@ -35,15 +36,25 @@
             var d = c.days_since_last_order;
             var color = d < 30 ? 'bg-green-400' : d < 60 ? 'bg-yellow-400' : d < 90 ? 'bg-orange-400' : d < 120 ? 'bg-red-400' : 'bg-red-700';
             var rowBg = d >= 90 ? 'bg-red-50' : d >= 60 ? 'bg-orange-50' : '';
+            var custId = c.shopify_customer_id || String(c.id);
+            var tCount = (typeof ticketCounts !== 'undefined' && ticketCounts[custId]) ? ticketCounts[custId] : 0;
           %>
             <tr class="hover:bg-gray-50 <%= rowBg %>">
               <td class="pl-2"><span class="block w-3 h-3 rounded-full <%= color %>"></span></td>
-              <td class="px-5 py-3 font-medium text-gray-800"><%= c.name || '—' %></td>
+              <td class="px-5 py-3 font-medium text-gray-800">
+                <%= c.name || '—' %>
+                <% if (tCount > 0) { %>
+                  <span class="ml-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-pink-500 rounded-full"><%= tCount %></span>
+                <% } %>
+              </td>
               <td class="px-5 py-3 text-gray-600"><%= c.email || '—' %></td>
               <td class="px-5 py-3 text-right font-bold"><%= d %> days</td>
               <td class="px-5 py-3 text-right"><%= c.total_orders %></td>
               <td class="px-5 py-3 text-right font-semibold text-pink-600">$<%= Number(c.total_spent || 0).toFixed(2) %></td>
               <td class="px-5 py-3 text-gray-600"><%= c.last_order_date ? c.last_order_date.split('T')[0] : '—' %></td>
+              <td class="px-5 py-3 text-center">
+                <button onclick='openTicketModal(<%= JSON.stringify({id: custId, name: c.name||"", email: c.email||"", phone: c.phone||""}) %>)' class="px-3 py-1 bg-pink-600 text-white rounded text-xs hover:bg-pink-700">🎫 Create Ticket</button>
+              </td>
             </tr>
           <% }); %>
         </tbody>
@@ -51,5 +62,90 @@
     </div>
   </div>
 <% } %>
+
+<!-- Create Ticket Modal -->
+<div id="ticketModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-lg font-bold text-gray-800">🎫 Create Retention Ticket</h2>
+      <button onclick="closeTicketModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
+    <form id="ticketForm" class="space-y-3">
+      <input type="hidden" id="t_customer_id">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Name</label>
+          <input type="text" id="t_name" class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50" readonly>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+          <input type="text" id="t_phone" class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50" readonly>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Email</label>
+        <input type="text" id="t_email" class="w-full border rounded-lg px-3 py-2 text-sm bg-gray-50" readonly>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Action Type</label>
+          <select id="t_action" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="call">📞 Call</option><option value="email">📧 Email</option><option value="sms">💬 SMS</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Scheduled Date</label>
+          <input type="datetime-local" id="t_date" class="w-full border rounded-lg px-3 py-2 text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">What to Offer</label>
+        <input type="text" id="t_offer" placeholder="e.g., 15% discount on reorder" class="w-full border rounded-lg px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Max Discount: <span id="t_discVal">10</span>%</label>
+        <input type="range" id="t_discount" min="0" max="50" value="10" class="w-full accent-pink-600" oninput="document.getElementById('t_discVal').textContent=this.value">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+        <textarea id="t_notes" rows="2" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Additional notes..."></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeTicketModal()" class="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+        <button type="submit" class="px-4 py-2 bg-pink-600 text-white rounded-lg text-sm hover:bg-pink-700">Create Ticket</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openTicketModal(c) {
+  document.getElementById('t_customer_id').value = c.id;
+  document.getElementById('t_name').value = c.name;
+  document.getElementById('t_email').value = c.email;
+  document.getElementById('t_phone').value = c.phone;
+  document.getElementById('t_date').value = new Date(Date.now()+86400000).toISOString().slice(0,16);
+  document.getElementById('ticketModal').classList.remove('hidden');
+}
+function closeTicketModal() { document.getElementById('ticketModal').classList.add('hidden'); }
+
+document.getElementById('ticketForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const body = {
+    customer_id: document.getElementById('t_customer_id').value,
+    customer_name: document.getElementById('t_name').value,
+    customer_email: document.getElementById('t_email').value,
+    customer_phone: document.getElementById('t_phone').value,
+    action_type: document.getElementById('t_action').value,
+    scheduled_date: document.getElementById('t_date').value,
+    offer_details: document.getElementById('t_offer').value,
+    max_discount: Number(document.getElementById('t_discount').value),
+    notes: document.getElementById('t_notes').value,
+  };
+  const res = await fetch('/api/tickets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (res.ok) { closeTicketModal(); location.reload(); }
+  else alert('Failed to create ticket');
+});
+</script>
 
 <%- include('layout-foot') %>

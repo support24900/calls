@@ -4,6 +4,7 @@ const { getAllCalls, getCallById, getDashboardStats } = require('../db/calls');
 const { getAbandonedCartsGroupedByDay, getAbandonedCartsByDate, getAllAbandonedCarts } = require('../db/abandonedCarts');
 const { getAllCustomers, getCustomersForRetention } = require('../db/customers');
 const { getDailyStats } = require('../db/abandonedCarts');
+const { getTicketCountsByCustomer } = require('../db/retentionTickets');
 
 function requireAuth(req, res, next) {
   if (req.session && req.session.authenticated) return next();
@@ -46,7 +47,13 @@ router.get('/customers', requireAuth, async (req, res) => {
 // Retention page
 router.get('/retention', requireAuth, async (req, res) => {
   const customers = await getCustomersForRetention();
-  res.render('retention', { customers, page: 'retention' });
+  const ticketCounts = await getTicketCountsByCustomer();
+  res.render('retention', { customers, ticketCounts, page: 'retention' });
+});
+
+// Tickets page
+router.get('/tickets', requireAuth, async (req, res) => {
+  res.render('tickets', { page: 'tickets' });
 });
 
 // Stats page

@@ -79,6 +79,35 @@ async function initDb() {
     )
   `);
 
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS cart_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rule_key TEXT UNIQUE NOT NULL,
+      rule_value TEXT,
+      updated_at DATETIME DEFAULT (datetime('now'))
+    )
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS retention_tickets (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id TEXT,
+      customer_name TEXT,
+      customer_email TEXT,
+      customer_phone TEXT,
+      action_type TEXT,
+      scheduled_date TEXT,
+      offer_details TEXT,
+      max_discount INTEGER DEFAULT 0,
+      notes TEXT,
+      status TEXT DEFAULT 'open',
+      call_id TEXT,
+      outcome TEXT,
+      created_at DATETIME DEFAULT (datetime('now')),
+      updated_at DATETIME DEFAULT (datetime('now'))
+    )
+  `);
+
   // Migration: add new columns to existing tables
   const migrations = [
     'ALTER TABLE calls ADD COLUMN revenue_recovered REAL',

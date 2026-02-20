@@ -1,7 +1,76 @@
 <% var title = 'Abandoned Carts'; %>
 <%- include('layout-head') %>
 
-<h1 class="text-2xl font-bold text-gray-800 mb-6">Abandoned Carts</h1>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold text-gray-800">Abandoned Carts</h1>
+  <button onclick="document.getElementById('rulesPanel').classList.toggle('hidden')" class="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 text-sm font-medium flex items-center gap-2">
+    ⚙️ Rules
+  </button>
+</div>
+
+<!-- Rules Panel -->
+<div id="rulesPanel" class="hidden bg-white rounded-xl shadow-sm p-6 mb-6 border border-pink-200">
+  <h2 class="text-lg font-bold text-gray-800 mb-4">Automation Rules</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Auto-call Enabled</label>
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" id="rule_auto_call_enabled" class="sr-only peer">
+        <div class="w-11 h-6 bg-gray-200 peer-focus:ring-2 peer-focus:ring-pink-300 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+        <span class="ml-2 text-sm text-gray-600" id="autoCallLabel">Off</span>
+      </label>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Call Delay</label>
+      <select id="rule_call_delay" class="w-full border rounded-lg px-3 py-2 text-sm">
+        <option value="30min">30 minutes</option><option value="1hr">1 hour</option><option value="2hr" selected>2 hours</option>
+        <option value="4hr">4 hours</option><option value="6hr">6 hours</option><option value="12hr">12 hours</option>
+        <option value="24hr">24 hours</option><option value="48hr">48 hours</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Sales Method</label>
+      <select id="rule_sales_method" class="w-full border rounded-lg px-3 py-2 text-sm">
+        <option value="emma_english">Emma - Aggressive English</option>
+        <option value="sarit_hebrew">Sarit - Hebrew</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Max Discount: <span id="discountVal">10</span>%</label>
+      <input type="range" id="rule_max_discount" min="0" max="50" value="10" class="w-full accent-pink-600" oninput="document.getElementById('discountVal').textContent=this.value">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Retry Attempts</label>
+      <select id="rule_retry_attempts" class="w-full border rounded-lg px-3 py-2 text-sm">
+        <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Retry Interval</label>
+      <select id="rule_retry_interval" class="w-full border rounded-lg px-3 py-2 text-sm">
+        <option value="15min">15 minutes</option><option value="30min" selected>30 minutes</option><option value="1hr">1 hour</option>
+        <option value="2hr">2 hours</option><option value="4hr">4 hours</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Active Hours Start</label>
+      <input type="time" id="rule_active_hours_start" value="09:00" class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Active Hours End</label>
+      <input type="time" id="rule_active_hours_end" value="21:00" class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Minimum Cart Value ($)</label>
+      <input type="number" id="rule_min_cart_value" value="0" min="0" class="w-full border rounded-lg px-3 py-2 text-sm">
+    </div>
+  </div>
+  <div class="mt-4 flex justify-end">
+    <button onclick="saveRules()" class="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 text-sm font-medium">💾 Save Rules</button>
+  </div>
+  <div id="rulesSaveMsg" class="hidden mt-2 text-sm text-green-600 text-right">✓ Rules saved!</div>
+</div>
 
 <% if (dailyGroups.length === 0) { %>
   <div class="bg-white rounded-xl shadow-sm p-12 text-center">
@@ -38,6 +107,7 @@
                     <th class="text-left px-5 py-3 text-gray-500 font-medium">Total</th>
                     <th class="text-left px-5 py-3 text-gray-500 font-medium">Call Status</th>
                     <th class="text-left px-5 py-3 text-gray-500 font-medium">Recording</th>
+                    <th class="text-left px-5 py-3 text-gray-500 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y">
@@ -54,12 +124,19 @@
                       </td>
                       <td class="px-5 py-3">
                         <% if (cart.call_recording_url) { %>
-                          <audio controls preload="none" class="h-8 w-48">
-                            <source src="<%= cart.call_recording_url %>" type="audio/mpeg">
-                          </audio>
+                          <audio controls preload="none" class="h-8 w-48"><source src="<%= cart.call_recording_url %>" type="audio/mpeg"></audio>
                         <% } else { %>
                           <span class="text-gray-300">—</span>
                         <% } %>
+                      </td>
+                      <td class="px-5 py-3 space-y-2">
+                        <% if (cart.customer_phone) { %>
+                          <button onclick="triggerCall(<%= cart.id %>)" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">📞 Call Now</button>
+                        <% } %>
+                        <div class="flex gap-1">
+                          <input type="text" id="notes-<%= cart.id %>" value="<%= cart.call_notes || '' %>" placeholder="📝 Notes..." class="border rounded px-2 py-1 text-xs w-32">
+                          <button onclick="saveNotes(<%= cart.id %>)" class="px-2 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">Save</button>
+                        </div>
                       </td>
                     </tr>
                   <% }); %>
@@ -72,5 +149,63 @@
     <% }); %>
   </div>
 <% } %>
+
+<script>
+// Load rules on page load
+(async function() {
+  try {
+    const res = await fetch('/api/cart-rules');
+    const rules = await res.json();
+    if (rules.auto_call_enabled === 'true') { document.getElementById('rule_auto_call_enabled').checked = true; document.getElementById('autoCallLabel').textContent = 'On'; }
+    if (rules.call_delay) document.getElementById('rule_call_delay').value = rules.call_delay;
+    if (rules.sales_method) document.getElementById('rule_sales_method').value = rules.sales_method;
+    if (rules.max_discount) { document.getElementById('rule_max_discount').value = rules.max_discount; document.getElementById('discountVal').textContent = rules.max_discount; }
+    if (rules.retry_attempts) document.getElementById('rule_retry_attempts').value = rules.retry_attempts;
+    if (rules.retry_interval) document.getElementById('rule_retry_interval').value = rules.retry_interval;
+    if (rules.active_hours_start) document.getElementById('rule_active_hours_start').value = rules.active_hours_start;
+    if (rules.active_hours_end) document.getElementById('rule_active_hours_end').value = rules.active_hours_end;
+    if (rules.min_cart_value) document.getElementById('rule_min_cart_value').value = rules.min_cart_value;
+  } catch(e) { console.error('Failed to load rules', e); }
+})();
+
+document.getElementById('rule_auto_call_enabled').addEventListener('change', function() {
+  document.getElementById('autoCallLabel').textContent = this.checked ? 'On' : 'Off';
+});
+
+async function saveRules() {
+  const rules = {
+    auto_call_enabled: document.getElementById('rule_auto_call_enabled').checked ? 'true' : 'false',
+    call_delay: document.getElementById('rule_call_delay').value,
+    sales_method: document.getElementById('rule_sales_method').value,
+    max_discount: document.getElementById('rule_max_discount').value,
+    retry_attempts: document.getElementById('rule_retry_attempts').value,
+    retry_interval: document.getElementById('rule_retry_interval').value,
+    active_hours_start: document.getElementById('rule_active_hours_start').value,
+    active_hours_end: document.getElementById('rule_active_hours_end').value,
+    min_cart_value: document.getElementById('rule_min_cart_value').value,
+  };
+  await fetch('/api/cart-rules', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(rules) });
+  const msg = document.getElementById('rulesSaveMsg');
+  msg.classList.remove('hidden');
+  setTimeout(() => msg.classList.add('hidden'), 2000);
+}
+
+async function triggerCall(cartId) {
+  if (!confirm('Trigger a call to this customer now?')) return;
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⏳...';
+  try {
+    const res = await fetch('/api/carts/' + cartId + '/trigger-call', { method: 'POST', headers: {'Content-Type':'application/json'} });
+    const data = await res.json();
+    if (data.success) { btn.textContent = '✅ Called'; btn.className = 'px-3 py-1 bg-gray-400 text-white rounded text-xs'; }
+    else { btn.textContent = '❌ Failed'; btn.disabled = false; }
+  } catch(e) { btn.textContent = '❌ Error'; btn.disabled = false; }
+}
+
+async function saveNotes(cartId) {
+  const notes = document.getElementById('notes-' + cartId).value;
+  await fetch('/api/carts/' + cartId + '/notes', { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ notes }) });
+}
+</script>
 
 <%- include('layout-foot') %>

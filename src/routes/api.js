@@ -3,6 +3,8 @@ const router = express.Router();
 const { bulkImportCustomers } = require('../db/customers');
 const { updateCartCallStatus, getDailyStats, getAbandonedCartById } = require('../db/abandonedCarts');
 const { triggerKlaviyoEvent, updateProfileWithCallOutcome } = require('../services/klaviyo');
+const { getCartRules, setCartRules } = require('../db/cartRules');
+const { getAllTickets, createTicket, updateTicket } = require('../db/retentionTickets');
 
 // POST /api/customers/import
 router.post('/customers/import', async (req, res) => {
@@ -68,6 +70,97 @@ router.get('/dashboard/stats', async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// Cart Rules API
+router.get('/cart-rules', async (req, res) => {
+  try {
+    const rules = await getCartRules();
+    res.json(rules);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/cart-rules', async (req, res) => {
+  try {
+    const rules = await setCartRules(req.body);
+    res.json({ success: true, rules });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Trigger Vapi call for a cart
+router.post('/carts/:id/trigger-call', async (req, res) => {
+  try {
+    const cart = await getAbandonedCartById(Number(req.params.id));
+    if (!cart) return res.status(404).json({ error: 'Cart not found' });
+    if (!cart.customer_phone) return res.status(400).json({ error: 'No phone number for this cart' });
+
+    const rules = await getCartRules();
+    const phoneNumberId = rules.phone_number_id || 'b84f8a12-9e25-46b7-a523-57477c52b6d9';
+    const assistantId = rules.assistant_id || '1fa240b4-11a1-47b1-ab46-a468d9c2ee49';
+
+    const vapiRes = await fetch('https://api.vapi.ai/call/phone', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer 606845cb-bb9e-4fb8-8ec2-3de4fb20125d', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumberId, assistantId, customer: { number: cart.customer_phone } }),
+    });
+    const data = await vapiRes.json();
+    await updateCartCallStatus(Number(req.params.id), { call_status: 'called', call_date: new Date().toISOString() });
+    res.json({ success: true, call: data });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Save cart notes
+router.patch('/carts/:id/notes', async (req, res) => {
+  try {
+    const cart = await updateCartCallStatus(Number(req.params.id), { call_notes: req.body.notes });
+    res.json({ success: true, cart });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Tickets API
+router.get('/tickets', async (req, res) => {
+  try {
+    const tickets = await getAllTickets({ status: req.query.status, customer_id: req.query.customer_id });
+    res.json(tickets);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/tickets', async (req, res) => {
+  try {
+    const ticket = await createTicket(req.body);
+    res.json({ success: true, ticket });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.patch('/tickets/:id', async (req, res) => {
+  try {
+    const ticket = await updateTicket(Number(req.params.id), req.body);
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    res.json({ success: true, ticket });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Trigger Vapi call for a ticket
+router.post('/tickets/:id/trigger-call', async (req, res) => {
+  try {
+    const { getTicketById } = require('../db/retentionTickets');
+    const ticket = await getTicketById(Number(req.params.id));
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    if (!ticket.customer_phone) return res.status(400).json({ error: 'No phone number' });
+
+    const rules = await getCartRules();
+    const phoneNumberId = rules.phone_number_id || 'b84f8a12-9e25-46b7-a523-57477c52b6d9';
+    const assistantId = rules.assistant_id || '1fa240b4-11a1-47b1-ab46-a468d9c2ee49';
+
+    const vapiRes = await fetch('https://api.vapi.ai/call/phone', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer 606845cb-bb9e-4fb8-8ec2-3de4fb20125d', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phoneNumberId, assistantId, customer: { number: ticket.customer_phone } }),
+    });
+    const data = await vapiRes.json();
+    await updateTicket(Number(req.params.id), { status: 'in_progress', call_id: data.id || '' });
+    res.json({ success: true, call: data });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;
