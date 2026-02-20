@@ -38,12 +38,58 @@ async function initDb() {
     )
   `);
 
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS abandoned_carts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shopify_cart_id TEXT,
+      customer_name TEXT,
+      customer_email TEXT,
+      customer_phone TEXT,
+      cart_total REAL DEFAULT 0,
+      currency TEXT DEFAULT 'USD',
+      items_json TEXT,
+      checkout_url TEXT,
+      abandoned_at DATETIME DEFAULT (datetime('now')),
+      call_status TEXT DEFAULT 'pending',
+      call_date DATETIME,
+      call_recording_url TEXT,
+      call_duration INTEGER,
+      call_notes TEXT,
+      created_at DATETIME DEFAULT (datetime('now')),
+      updated_at DATETIME DEFAULT (datetime('now'))
+    )
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      shopify_customer_id TEXT UNIQUE,
+      name TEXT,
+      email TEXT,
+      phone TEXT,
+      address TEXT,
+      city TEXT,
+      state TEXT,
+      country TEXT,
+      total_orders INTEGER DEFAULT 0,
+      total_spent REAL DEFAULT 0,
+      first_order_date DATETIME,
+      last_order_date DATETIME,
+      created_at DATETIME DEFAULT (datetime('now'))
+    )
+  `);
+
   // Migration: add new columns to existing tables
   const migrations = [
     'ALTER TABLE calls ADD COLUMN revenue_recovered REAL',
     'ALTER TABLE calls ADD COLUMN converted_at DATETIME',
     'ALTER TABLE calls ADD COLUMN scheduled_for DATETIME',
     'ALTER TABLE calls ADD COLUMN customer_timezone TEXT',
+    'ALTER TABLE abandoned_carts ADD COLUMN call_status TEXT DEFAULT \'pending\'',
+    'ALTER TABLE abandoned_carts ADD COLUMN call_date DATETIME',
+    'ALTER TABLE abandoned_carts ADD COLUMN call_recording_url TEXT',
+    'ALTER TABLE abandoned_carts ADD COLUMN call_duration INTEGER',
+    'ALTER TABLE abandoned_carts ADD COLUMN call_notes TEXT',
   ];
   for (const sql of migrations) {
     try { await client.execute(sql); } catch (_) { /* column already exists */ }

@@ -5,16 +5,59 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mirai Skin — <%= typeof title !== 'undefined' ? title : 'Dashboard' %></title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .sidebar-link { display:flex; align-items:center; gap:0.75rem; padding:0.625rem 1rem; border-radius:0.5rem; font-size:0.875rem; font-weight:500; color:#6b7280; transition:all 0.15s; }
+    .sidebar-link:hover { background:#f3f4f6; color:#111827; }
+    .sidebar-link.active { background:#fce7f3; color:#db2777; }
+    .badge { display:inline-flex; align-items:center; padding:0.125rem 0.5rem; border-radius:9999px; font-size:0.75rem; font-weight:600; }
+    .badge-pending { background:#fef3c7; color:#92400e; }
+    .badge-called { background:#dbeafe; color:#1e40af; }
+    .badge-answered { background:#d1fae5; color:#065f46; }
+    .badge-converted { background:#c7d2fe; color:#3730a3; }
+    .badge-failed { background:#fee2e2; color:#991b1b; }
+  </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-  <nav class="bg-white shadow-sm border-b">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-6">
-        <span class="text-lg font-bold text-pink-600">🌸 Mirai Skin</span>
-        <a href="/dashboard" class="text-gray-600 hover:text-gray-900">Overview</a>
-        <a href="/dashboard/calls" class="text-gray-600 hover:text-gray-900">Calls</a>
+  <!-- Mobile header -->
+  <div class="lg:hidden bg-white border-b px-4 py-3 flex items-center justify-between">
+    <span class="text-lg font-bold text-pink-600">🌸 Mirai Skin</span>
+    <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="text-gray-600">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+    </button>
+  </div>
+
+  <div class="flex min-h-screen">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-40 w-64 bg-white border-r transform -translate-x-full lg:translate-x-0 transition-transform duration-200 flex flex-col">
+      <div class="p-6 border-b">
+        <span class="text-xl font-bold text-pink-600">🌸 Mirai Skin</span>
+        <p class="text-xs text-gray-400 mt-1">Cart Recovery Dashboard</p>
       </div>
-      <a href="/dashboard/logout" class="text-sm text-gray-500 hover:text-gray-700">Logout</a>
-    </div>
-  </nav>
-  <main class="max-w-7xl mx-auto px-4 py-8">
+      <nav class="flex-1 p-4 space-y-1">
+        <a href="/dashboard" class="sidebar-link <%= (typeof page !== 'undefined' && page === 'carts') ? 'active' : '' %>">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+          Abandoned Carts
+        </a>
+        <a href="/dashboard/customers" class="sidebar-link <%= (typeof page !== 'undefined' && page === 'customers') ? 'active' : '' %>">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Customers
+        </a>
+        <a href="/dashboard/retention" class="sidebar-link <%= (typeof page !== 'undefined' && page === 'retention') ? 'active' : '' %>">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Retention
+        </a>
+        <a href="/dashboard/stats" class="sidebar-link <%= (typeof page !== 'undefined' && page === 'stats') ? 'active' : '' %>">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          Stats
+        </a>
+      </nav>
+      <div class="p-4 border-t">
+        <a href="/dashboard/logout" class="sidebar-link text-red-400 hover:text-red-600 hover:bg-red-50">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          Logout
+        </a>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 p-4 lg:p-8 max-w-full overflow-x-hidden">

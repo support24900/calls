@@ -1,0 +1,50 @@
+<% var title = 'Customers'; %>
+<%- include('layout-head') %>
+
+<div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+  <h1 class="text-2xl font-bold text-gray-800">Customers</h1>
+  <form method="GET" action="/dashboard/customers" class="flex gap-2">
+    <input type="text" name="search" value="<%= search %>" placeholder="Search name, email, phone…" class="border rounded-lg px-3 py-2 text-sm w-64 focus:ring-2 focus:ring-pink-300 outline-none">
+    <button type="submit" class="bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-pink-700">Search</button>
+  </form>
+</div>
+
+<% if (customers.length === 0) { %>
+  <div class="bg-white rounded-xl shadow-sm p-12 text-center">
+    <p class="text-gray-400 text-lg">No customers found</p>
+    <p class="text-gray-300 text-sm mt-2">Import customers via POST /api/customers/import</p>
+  </div>
+<% } else { %>
+  <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-5 py-3 text-gray-500 font-medium">Name</th>
+            <th class="text-left px-5 py-3 text-gray-500 font-medium">Email</th>
+            <th class="text-left px-5 py-3 text-gray-500 font-medium">Phone</th>
+            <th class="text-left px-5 py-3 text-gray-500 font-medium">Location</th>
+            <th class="text-right px-5 py-3 text-gray-500 font-medium">Orders</th>
+            <th class="text-right px-5 py-3 text-gray-500 font-medium">Total Spent</th>
+            <th class="text-left px-5 py-3 text-gray-500 font-medium">Last Order</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y">
+          <% customers.forEach(function(c) { %>
+            <tr class="hover:bg-gray-50">
+              <td class="px-5 py-3 font-medium text-gray-800"><%= c.name || '—' %></td>
+              <td class="px-5 py-3 text-gray-600"><%= c.email || '—' %></td>
+              <td class="px-5 py-3 text-gray-600"><%= c.phone || '—' %></td>
+              <td class="px-5 py-3 text-gray-600"><%= [c.city, c.state, c.country].filter(Boolean).join(', ') || '—' %></td>
+              <td class="px-5 py-3 text-right font-semibold"><%= c.total_orders %></td>
+              <td class="px-5 py-3 text-right font-semibold text-pink-600">$<%= Number(c.total_spent || 0).toFixed(2) %></td>
+              <td class="px-5 py-3 text-gray-600"><%= c.last_order_date ? c.last_order_date.split('T')[0] : '—' %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% } %>
+
+<%- include('layout-foot') %>

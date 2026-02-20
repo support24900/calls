@@ -11,6 +11,7 @@ const dashboard = require('./routes/dashboard');
 const shopifyOrderWebhook = require('./routes/shopifyOrderWebhook');
 const shopifyAbandonedWebhook = require('./routes/shopifyAbandonedWebhook');
 const discountTool = require('./routes/discountTool');
+const apiRoutes = require('./routes/api');
 const { startScheduler } = require('./services/scheduler');
 
 // DB init middleware — only runs on webhook routes
@@ -68,6 +69,9 @@ function createApp() {
   app.use('/api/webhook', ensureDb, shopifyOrderWebhook);
   app.use('/api/webhook', ensureDb, shopifyAbandonedWebhook);
   app.use('/api/tool', discountTool);
+
+  // Phase 3 API routes — require database
+  app.use('/api', ensureDb, apiRoutes);
 
   return app;
 }
