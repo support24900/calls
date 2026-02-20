@@ -55,10 +55,16 @@ async function initDb() {
       call_recording_url TEXT,
       call_duration INTEGER,
       call_notes TEXT,
+      discount_codes TEXT,
+      total_discounts REAL DEFAULT 0,
       created_at DATETIME DEFAULT (datetime('now')),
       updated_at DATETIME DEFAULT (datetime('now'))
     )
   `);
+
+  // Add discount columns if missing (migration)
+  try { await client.execute(`ALTER TABLE abandoned_carts ADD COLUMN discount_codes TEXT`); } catch(e) {}
+  try { await client.execute(`ALTER TABLE abandoned_carts ADD COLUMN total_discounts REAL DEFAULT 0`); } catch(e) {}
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS customers (

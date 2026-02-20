@@ -66,12 +66,12 @@ async function getDailyStats() {
   };
 }
 
-async function insertAbandonedCart({ shopify_cart_id, customer_name, customer_email, customer_phone, cart_total, items_json, checkout_url, abandoned_at }) {
+async function insertAbandonedCart({ shopify_cart_id, customer_name, customer_email, customer_phone, cart_total, items_json, checkout_url, abandoned_at, discount_codes, total_discounts }) {
   const db = getDb();
   const result = await db.execute({
-    sql: `INSERT INTO abandoned_carts (shopify_cart_id, customer_name, customer_email, customer_phone, cart_total, items_json, checkout_url, abandoned_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    args: [shopify_cart_id || '', customer_name || '', customer_email || '', customer_phone || '', cart_total || 0, items_json || '[]', checkout_url || '', abandoned_at || new Date().toISOString()],
+    sql: `INSERT INTO abandoned_carts (shopify_cart_id, customer_name, customer_email, customer_phone, cart_total, items_json, checkout_url, abandoned_at, discount_codes, total_discounts)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [shopify_cart_id || '', customer_name || '', customer_email || '', customer_phone || '', cart_total || 0, items_json || '[]', checkout_url || '', abandoned_at || new Date().toISOString(), discount_codes || '[]', total_discounts || 0],
   });
   return result.lastInsertRowid;
 }

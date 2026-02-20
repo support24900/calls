@@ -97,52 +97,90 @@
         </a>
 
         <% if (expandDate === group.day && expandedCarts.length > 0) { %>
-          <div class="border-t">
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="text-left px-5 py-3 text-gray-500 font-medium">Customer</th>
-                    <th class="text-left px-5 py-3 text-gray-500 font-medium">Email / Phone</th>
-                    <th class="text-left px-5 py-3 text-gray-500 font-medium">Total</th>
-                    <th class="text-left px-5 py-3 text-gray-500 font-medium">Call Status</th>
-                    <th class="text-left px-5 py-3 text-gray-500 font-medium">Recording</th>
-                    <th class="text-left px-5 py-3 text-gray-500 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y">
-                  <% expandedCarts.forEach(function(cart) { %>
-                    <tr class="hover:bg-gray-50">
-                      <td class="px-5 py-3 font-medium text-gray-800"><%= cart.customer_name || 'Unknown' %></td>
-                      <td class="px-5 py-3 text-gray-600">
-                        <div><%= cart.customer_email || '—' %></div>
-                        <div class="text-xs text-gray-400"><%= cart.customer_phone || '' %></div>
-                      </td>
-                      <td class="px-5 py-3 font-semibold">$<%= Number(cart.cart_total || 0).toFixed(2) %></td>
-                      <td class="px-5 py-3">
-                        <span class="badge badge-<%= cart.call_status || 'pending' %>"><%= (cart.call_status || 'pending').toUpperCase() %></span>
-                      </td>
-                      <td class="px-5 py-3">
-                        <% if (cart.call_recording_url) { %>
-                          <audio controls preload="none" class="h-8 w-48"><source src="<%= cart.call_recording_url %>" type="audio/mpeg"></audio>
-                        <% } else { %>
-                          <span class="text-gray-300">—</span>
-                        <% } %>
-                      </td>
-                      <td class="px-5 py-3 space-y-2">
-                        <% if (cart.customer_phone) { %>
-                          <button onclick="triggerCall(<%= cart.id %>)" class="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">📞 Call Now</button>
-                        <% } %>
-                        <div class="flex gap-1">
-                          <input type="text" id="notes-<%= cart.id %>" value="<%= cart.call_notes || '' %>" placeholder="📝 Notes..." class="border rounded px-2 py-1 text-xs w-32">
-                          <button onclick="saveNotes(<%= cart.id %>)" class="px-2 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">Save</button>
+          <div class="border-t divide-y">
+            <% expandedCarts.forEach(function(cart) {
+              var items = [];
+              try { items = JSON.parse(cart.items_json || '[]'); } catch(e) {}
+              if (typeof items === 'string') { try { items = [{title: items}]; } catch(e) { items = []; } }
+              var discounts = [];
+              try { discounts = JSON.parse(cart.discount_codes || '[]'); } catch(e) {}
+              var totalDisc = Number(cart.total_discounts || 0);
+            %>
+              <div class="p-5 hover:bg-gray-50">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                  <!-- Customer Info -->
+                  <div class="min-w-[200px]">
+                    <div class="font-semibold text-gray-800"><%= cart.customer_name || 'Unknown' %></div>
+                    <div class="text-xs text-gray-500"><%= cart.customer_email || '—' %></div>
+                    <% if (cart.customer_phone) { %>
+                      <div class="text-xs text-green-600 font-medium mt-1">📞 <%= cart.customer_phone %></div>
+                    <% } else { %>
+                      <div class="text-xs text-red-400 mt-1">❌ No phone</div>
+                    <% } %>
+                  </div>
+
+                  <!-- Products -->
+                  <div class="flex-1 min-w-[250px]">
+                    <% if (Array.isArray(items) && items.length > 0) { %>
+                      <div class="space-y-2">
+                        <% items.forEach(function(item) { %>
+                          <div class="flex items-center gap-3">
+                            <% if (item.image) { %>
+                              <img src="<%= item.image %>" class="w-10 h-10 rounded-lg object-cover border" alt="">
+                            <% } else { %>
+                              <div class="w-10 h-10 rounded-lg bg-pink-50 flex items-center justify-center text-pink-400 text-lg">🧴</div>
+                            <% } %>
+                            <div>
+                              <div class="text-sm font-medium text-gray-800"><%= item.title || 'Product' %></div>
+                              <div class="text-xs text-gray-400">
+                                Qty: <%= item.quantity || 1 %>
+                                <% if (item.price) { %> · $<%= item.price %><% } %>
+                                <% if (item.variant_title) { %> · <span class="text-gray-500"><%= item.variant_title %></span><% } %>
+                              </div>
+                            </div>
+                          </div>
+                        <% }); %>
+                      </div>
+                    <% } else { %>
+                      <span class="text-gray-400 text-sm italic">No product details</span>
+                    <% } %>
+                  </div>
+
+                  <!-- Total + Discount -->
+                  <div class="text-right min-w-[120px]">
+                    <div class="text-lg font-bold text-pink-600">$<%= Number(cart.cart_total || 0).toFixed(2) %></div>
+                    <% if (discounts.length > 0) { %>
+                      <% discounts.forEach(function(dc) { %>
+                        <div class="mt-1">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            🏷️ <%= dc.code %> <% if (dc.amount) { %>(-$<%= dc.amount %>)<% } %>
+                          </span>
                         </div>
-                      </td>
-                    </tr>
-                  <% }); %>
-                </tbody>
-              </table>
-            </div>
+                      <% }); %>
+                    <% } else if (totalDisc > 0) { %>
+                      <div class="text-sm text-green-600 font-medium mt-1">💰 -$<%= totalDisc.toFixed(2) %> discount</div>
+                    <% } %>
+                  </div>
+
+                  <!-- Status + Actions -->
+                  <div class="min-w-[140px] text-right space-y-2">
+                    <span class="badge badge-<%= cart.call_status || 'pending' %>"><%= (cart.call_status || 'pending').toUpperCase() %></span>
+                    <% if (cart.customer_phone) { %>
+                      <div><button onclick="triggerCall(<%= cart.id %>)" class="text-xs bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition font-medium">📞 Call Now</button></div>
+                    <% } %>
+                    <% if (cart.call_recording_url) { %>
+                      <audio controls preload="none" class="h-7 w-36">
+                        <source src="<%= cart.call_recording_url %>" type="audio/mpeg">
+                      </audio>
+                    <% } %>
+                    <div class="flex gap-1 justify-end">
+                      <input type="text" id="notes-<%= cart.id %>" value="<%= cart.call_notes || '' %>" placeholder="📝 Notes..." class="border rounded px-2 py-1 text-xs w-28">
+                      <button onclick="saveNotes(<%= cart.id %>)" class="px-2 py-1 bg-gray-200 rounded text-xs hover:bg-gray-300">💾</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% }); %>
           </div>
         <% } %>
       </div>
@@ -151,7 +189,6 @@
 <% } %>
 
 <script>
-// Load rules on page load
 (async function() {
   try {
     const res = await fetch('/api/cart-rules');
@@ -165,7 +202,7 @@
     if (rules.active_hours_start) document.getElementById('rule_active_hours_start').value = rules.active_hours_start;
     if (rules.active_hours_end) document.getElementById('rule_active_hours_end').value = rules.active_hours_end;
     if (rules.min_cart_value) document.getElementById('rule_min_cart_value').value = rules.min_cart_value;
-  } catch(e) { console.error('Failed to load rules', e); }
+  } catch(e) {}
 })();
 
 document.getElementById('rule_auto_call_enabled').addEventListener('change', function() {
@@ -197,7 +234,7 @@ async function triggerCall(cartId) {
   try {
     const res = await fetch('/api/carts/' + cartId + '/trigger-call', { method: 'POST', headers: {'Content-Type':'application/json'} });
     const data = await res.json();
-    if (data.success) { btn.textContent = '✅ Called'; btn.className = 'px-3 py-1 bg-gray-400 text-white rounded text-xs'; }
+    if (data.success) { btn.textContent = '✅ Called'; btn.className = 'text-xs bg-gray-400 text-white px-3 py-1.5 rounded-lg'; }
     else { btn.textContent = '❌ Failed'; btn.disabled = false; }
   } catch(e) { btn.textContent = '❌ Error'; btn.disabled = false; }
 }

@@ -14,14 +14,13 @@ function verifyShopifyHmac(body, hmacHeader) {
   }
 }
 
-// Shopify sends abandoned checkout webhook
 router.post('/shopify-abandoned', express.raw({ type: 'application/json' }), async (req, res) => {
   const hmac = req.headers['x-shopify-hmac-sha256'];
   const rawBody = typeof req.body === 'string' ? req.body : (Buffer.isBuffer(req.body) ? req.body.toString('utf8') : JSON.stringify(req.body));
 
   if (hmac && process.env.SHOPIFY_WEBHOOK_SECRET) {
     if (!verifyShopifyHmac(rawBody, hmac)) {
-      console.warn('Shopify HMAC mismatch — accepting anyway (secret may need update)');
+      console.warn('Shopify HMAC mismatch — accepting anyway');
     }
   }
 
@@ -37,15 +36,18 @@ router.post('/shopify-abandoned', express.raw({ type: 'application/json' }), asy
     quantity: item.quantity,
     price: item.price,
     variant_title: item.variant_title,
+    sku: item.sku,
+    image: item.image?.src || '',
+    discount_allocations: item.discount_allocations || [],
   }));
   const checkoutUrl = checkout.abandoned_checkout_url || '';
+  const discountCodes = checkout.discount_codes || [];
+  const totalDiscounts = parseFloat(checkout.total_discounts) || 0;
 
   if (!email && !phone) {
-    console.log('Shopify abandoned checkout: no email or phone, skipping');
     return res.status(200).json({ skipped: true, reason: 'no_contact_info' });
   }
 
-  // Dedup
   if (email) {
     const recent = await getRecentCartByEmail(email);
     if (recent) {
@@ -62,13 +64,13 @@ router.post('/shopify-abandoned', express.raw({ type: 'application/json' }), asy
     items_json: JSON.stringify(cartItems),
     checkout_url: checkoutUrl,
     abandoned_at: checkout.created_at || new Date().toISOString(),
+    discount_codes: JSON.stringify(discountCodes),
+    total_discounts: totalDiscounts,
   });
 
-  console.log(`Abandoned cart saved: ${name} (${email}) — $${cartTotal} — ${cartItems.length} items`);
   res.status(200).json({ success: true, cartId: Number(id), collectOnly: true });
 });
 
-// Bulk import endpoint
 router.post('/bulk-import-carts', async (req, res) => {
   const secret = req.headers['x-import-secret'];
   if (secret !== process.env.DASHBOARD_PASSWORD) {
@@ -88,10 +90,12 @@ router.post('/bulk-import-carts', async (req, res) => {
         items_json: typeof cart.items === 'string' ? cart.items : JSON.stringify(cart.items || ''),
         checkout_url: cart.checkout_url || '',
         abandoned_at: cart.abandoned_at || new Date().toISOString(),
+        discount_codes: typeof cart.discount_codes === 'string' ? cart.discount_codes : JSON.stringify(cart.discount_codes || []),
+        total_discounts: parseFloat(cart.total_discounts || 0),
       });
       imported++;
     } catch (err) {
-      console.error(`Failed to import cart for ${cart.customer_email || cart.email}:`, err.message);
+      console.error(`Failed to import cart:`, err.message);
     }
   }
 
