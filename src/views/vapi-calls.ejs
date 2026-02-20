@@ -1,0 +1,210 @@
+<% var title = 'Vapi Call Logs'; %>
+<%- include('layout-head') %>
+
+<h1 class="text-2xl font-bold text-gray-800 mb-6">📞 Vapi Call Logs</h1>
+
+<!-- Filters -->
+<div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+  <div class="flex flex-wrap gap-4 items-end">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">From</label>
+      <input type="date" id="filterFrom" class="border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">To</label>
+      <input type="date" id="filterTo" class="border rounded-lg px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+      <select id="filterStatus" class="border rounded-lg px-3 py-2 text-sm">
+        <option value="">All</option>
+        <option value="queued">Queued</option>
+        <option value="ringing">Ringing</option>
+        <option value="in-progress">In Progress</option>
+        <option value="ended">Ended</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
+      <input type="text" id="filterSearch" placeholder="Name or phone..." class="border rounded-lg px-3 py-2 text-sm w-48">
+    </div>
+    <button onclick="applyFilters()" class="bg-pink-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-pink-700">Filter</button>
+    <button onclick="clearFilters()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300">Clear</button>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loading" class="bg-white rounded-xl shadow-sm p-12 text-center">
+  <p class="text-gray-400 text-lg">Loading calls...</p>
+</div>
+
+<!-- Table -->
+<div id="callsTable" class="bg-white rounded-xl shadow-sm overflow-hidden hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Date/Time</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Customer</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Status</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Ended Reason</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Cost</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Duration</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Phone</th>
+          <th class="text-left px-4 py-3 text-gray-500 font-medium">Assistant</th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody id="callsBody" class="divide-y"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="noResults" class="bg-white rounded-xl shadow-sm p-12 text-center hidden">
+  <p class="text-gray-400 text-lg">No calls found</p>
+</div>
+
+<script>
+let allCalls = [];
+
+function getEndedReasonBadge(reason) {
+  if (!reason) return '<span class="text-gray-300">—</span>';
+  const colors = {
+    'customer-ended-call': 'bg-blue-100 text-blue-700',
+    'assistant-ended-call': 'bg-green-100 text-green-700',
+    'assistant-error': 'bg-red-100 text-red-700',
+    'assistant-not-found': 'bg-red-100 text-red-700',
+    'assistant-request-returned-error': 'bg-red-100 text-red-700',
+    'customer-busy': 'bg-yellow-100 text-yellow-700',
+    'customer-did-not-answer': 'bg-yellow-100 text-yellow-700',
+    'customer-did-not-give-microphone-permission': 'bg-orange-100 text-orange-700',
+    'exceeded-max-duration': 'bg-purple-100 text-purple-700',
+    'manually-canceled': 'bg-gray-100 text-gray-700',
+    'phone-call-provider-closed-websocket': 'bg-orange-100 text-orange-700',
+    'pipeline-error-openai-llm-failed': 'bg-red-100 text-red-700',
+    'silence-timed-out': 'bg-yellow-100 text-yellow-700',
+    'voicemail': 'bg-indigo-100 text-indigo-700',
+  };
+  const cls = colors[reason] || 'bg-gray-100 text-gray-700';
+  return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${cls}">${reason.replace(/-/g,' ')}</span>`;
+}
+
+function getStatusBadge(status) {
+  const colors = {
+    'queued': 'bg-gray-100 text-gray-700',
+    'ringing': 'bg-yellow-100 text-yellow-700',
+    'in-progress': 'bg-blue-100 text-blue-700',
+    'ended': 'bg-green-100 text-green-700',
+  };
+  const cls = colors[status] || 'bg-gray-100 text-gray-700';
+  return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${cls}">${status || '—'}</span>`;
+}
+
+function formatDuration(startedAt, endedAt) {
+  if (!startedAt || !endedAt) return '—';
+  const ms = new Date(endedAt) - new Date(startedAt);
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function getTranscript(call) {
+  if (!call.messages || !call.messages.length) return null;
+  return call.messages
+    .filter(m => m.role === 'user' || m.role === 'assistant' || m.role === 'bot')
+    .map(m => `<div class="mb-1"><span class="font-semibold ${m.role === 'user' ? 'text-blue-600' : 'text-pink-600'}">${m.role === 'user' ? 'Customer' : 'Assistant'}:</span> ${m.message || m.content || ''}</div>`)
+    .join('');
+}
+
+function renderCalls(calls) {
+  const body = document.getElementById('callsBody');
+  const table = document.getElementById('callsTable');
+  const noResults = document.getElementById('noResults');
+  document.getElementById('loading').classList.add('hidden');
+
+  if (!calls.length) {
+    table.classList.add('hidden');
+    noResults.classList.remove('hidden');
+    return;
+  }
+  noResults.classList.add('hidden');
+  table.classList.remove('hidden');
+
+  body.innerHTML = calls.map((call, i) => {
+    const customerName = call.customer?.name || '—';
+    const customerPhone = call.customer?.number || '—';
+    const phoneFrom = call.phoneNumber?.number || call.phoneNumberId || '—';
+    const assistantName = call.assistant?.name || call.assistantId?.substring(0,8) || '—';
+    const transcript = getTranscript(call);
+    const cost = call.cost != null ? `$${Number(call.cost).toFixed(2)}` : '—';
+    const duration = formatDuration(call.startedAt, call.endedAt);
+
+    return `
+      <tr class="hover:bg-gray-50 cursor-pointer" onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <td class="px-4 py-3 text-gray-700 whitespace-nowrap">${formatDate(call.createdAt)}</td>
+        <td class="px-4 py-3"><div class="font-medium text-gray-800">${customerName}</div><div class="text-xs text-gray-400">${customerPhone}</div></td>
+        <td class="px-4 py-3">${getStatusBadge(call.status)}</td>
+        <td class="px-4 py-3">${getEndedReasonBadge(call.endedReason)}</td>
+        <td class="px-4 py-3 font-semibold text-gray-700">${cost}</td>
+        <td class="px-4 py-3 text-gray-600">${duration}</td>
+        <td class="px-4 py-3 text-gray-600 text-xs">${phoneFrom}</td>
+        <td class="px-4 py-3 text-gray-600">${assistantName}</td>
+        <td class="px-4 py-3 text-gray-400"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></td>
+      </tr>
+      <tr class="hidden">
+        <td colspan="9" class="px-4 py-4 bg-gray-50">
+          <div class="text-sm">
+            <div class="font-semibold text-gray-700 mb-2">Transcript</div>
+            ${transcript || '<span class="text-gray-400">No transcript available</span>'}
+            ${call.recordingUrl ? `<div class="mt-3"><audio controls preload="none" class="h-8"><source src="${call.recordingUrl}" type="audio/mpeg"></audio></div>` : ''}
+            ${call.summary ? `<div class="mt-3"><span class="font-semibold text-gray-700">Summary:</span> ${call.summary}</div>` : ''}
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function applyFilters() {
+  let filtered = [...allCalls];
+  const from = document.getElementById('filterFrom').value;
+  const to = document.getElementById('filterTo').value;
+  const status = document.getElementById('filterStatus').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  if (from) filtered = filtered.filter(c => c.createdAt >= from);
+  if (to) filtered = filtered.filter(c => c.createdAt <= to + 'T23:59:59');
+  if (status) filtered = filtered.filter(c => c.status === status);
+  if (search) filtered = filtered.filter(c => {
+    const name = (c.customer?.name || '').toLowerCase();
+    const phone = (c.customer?.number || '');
+    return name.includes(search) || phone.includes(search);
+  });
+  renderCalls(filtered);
+}
+
+function clearFilters() {
+  document.getElementById('filterFrom').value = '';
+  document.getElementById('filterTo').value = '';
+  document.getElementById('filterStatus').value = '';
+  document.getElementById('filterSearch').value = '';
+  renderCalls(allCalls);
+}
+
+fetch('/api/vapi/calls')
+  .then(r => r.json())
+  .then(data => {
+    allCalls = Array.isArray(data) ? data : [];
+    renderCalls(allCalls);
+  })
+  .catch(err => {
+    document.getElementById('loading').innerHTML = '<p class="text-red-500">Failed to load calls: ' + err.message + '</p>';
+  });
+</script>
+
+<%- include('layout-foot') %>

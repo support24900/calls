@@ -56,6 +56,11 @@ router.get('/stats', requireAuth, async (req, res) => {
   res.render('stats', { stats, callStats, page: 'stats' });
 });
 
+// Vapi call logs
+router.get('/vapi-calls', requireAuth, async (req, res) => {
+  res.render('vapi-calls', { page: 'vapi-calls' });
+});
+
 // Legacy calls pages
 router.get('/calls', requireAuth, async (req, res) => {
   const { outcome, dateFrom, dateTo } = req.query;
