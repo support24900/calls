@@ -66,7 +66,26 @@ async function getDailyStats() {
   };
 }
 
+async function insertAbandonedCart({ shopify_cart_id, customer_name, customer_email, customer_phone, cart_total, items_json, checkout_url, abandoned_at }) {
+  const db = getDb();
+  const result = await db.execute({
+    sql: `INSERT INTO abandoned_carts (shopify_cart_id, customer_name, customer_email, customer_phone, cart_total, items_json, checkout_url, abandoned_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [shopify_cart_id || '', customer_name || '', customer_email || '', customer_phone || '', cart_total || 0, items_json || '[]', checkout_url || '', abandoned_at || new Date().toISOString()],
+  });
+  return result.lastInsertRowid;
+}
+
+async function getRecentCartByEmail(email) {
+  const db = getDb();
+  const result = await db.execute({
+    sql: `SELECT * FROM abandoned_carts WHERE customer_email = ? AND abandoned_at > datetime('now', '-24 hours') LIMIT 1`,
+    args: [email],
+  });
+  return result.rows[0] || null;
+}
+
 module.exports = {
   getAbandonedCartsGroupedByDay, getAbandonedCartsByDate, getAllAbandonedCarts,
-  getAbandonedCartById, updateCartCallStatus, getDailyStats,
+  getAbandonedCartById, updateCartCallStatus, getDailyStats, insertAbandonedCart, getRecentCartByEmail,
 };

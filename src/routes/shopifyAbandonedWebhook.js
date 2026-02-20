@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
-const { createCallRecord, getRecentCallByPhone } = require('../db/calls');
+const { insertAbandonedCart, getRecentCartByEmail } = require('../db/abandonedCarts');
 
 function verifyShopifyHmac(body, hmacHeader) {
   const secret = process.env.SHOPIFY_WEBHOOK_SECRET;
@@ -29,9 +29,8 @@ router.post('/shopify-abandoned', express.raw({ type: 'application/json' }), asy
 
   const email = checkout.email;
   const phone = checkout.phone || checkout.shipping_address?.phone || checkout.billing_address?.phone;
-  const firstName = checkout.shipping_address?.first_name || checkout.billing_address?.first_name || '';
-  const lastName = checkout.shipping_address?.last_name || checkout.billing_address?.last_name || '';
-  const customerName = `${firstName} ${lastName}`.trim() || email || 'Unknown';
+  const name = checkout.billing_address?.name || checkout.shipping_address?.name ||
+    `${checkout.shipping_address?.first_name || checkout.billing_address?.first_name || ''} ${checkout.shipping_address?.last_name || checkout.billing_address?.last_name || ''}`.trim() || email || 'Unknown';
   const cartTotal = parseFloat(checkout.total_price) || 0;
   const cartItems = (checkout.line_items || []).map(item => ({
     title: item.title,
@@ -40,36 +39,36 @@ router.post('/shopify-abandoned', express.raw({ type: 'application/json' }), asy
     variant_title: item.variant_title,
   }));
   const checkoutUrl = checkout.abandoned_checkout_url || '';
-  const state = checkout.shipping_address?.province_code || checkout.billing_address?.province_code || '';
 
   if (!email && !phone) {
     console.log('Shopify abandoned checkout: no email or phone, skipping');
     return res.status(200).json({ skipped: true, reason: 'no_contact_info' });
   }
 
-  // Dedup: skip if already recorded in last 24 hours with same email
-  if (phone) {
-    const recentCall = await getRecentCallByPhone(phone);
-    if (recentCall) {
-      console.log(`Skipping abandoned checkout for ${customerName} — already recorded recently`);
+  // Dedup
+  if (email) {
+    const recent = await getRecentCartByEmail(email);
+    if (recent) {
       return res.status(200).json({ skipped: true, reason: 'already_recorded' });
     }
   }
 
-  const callRecord = await createCallRecord({
-    customer_phone: phone || '',
+  const id = await insertAbandonedCart({
+    shopify_cart_id: String(checkout.id || ''),
+    customer_name: name,
     customer_email: email || '',
-    customer_name: customerName,
+    customer_phone: phone || '',
     cart_total: cartTotal,
     items_json: JSON.stringify(cartItems),
     checkout_url: checkoutUrl,
+    abandoned_at: checkout.created_at || new Date().toISOString(),
   });
 
-  console.log(`Abandoned cart collected: ${customerName} (${email}) — $${cartTotal} — ${cartItems.length} items`);
-  res.status(200).json({ success: true, callId: callRecord.id, collectOnly: true });
+  console.log(`Abandoned cart saved: ${name} (${email}) — $${cartTotal} — ${cartItems.length} items`);
+  res.status(200).json({ success: true, cartId: Number(id), collectOnly: true });
 });
 
-// Bulk import endpoint (one-time use)
+// Bulk import endpoint
 router.post('/bulk-import-carts', async (req, res) => {
   const secret = req.headers['x-import-secret'];
   if (secret !== process.env.DASHBOARD_PASSWORD) {
@@ -80,17 +79,19 @@ router.post('/bulk-import-carts', async (req, res) => {
   let imported = 0;
   for (const cart of carts) {
     try {
-      await createCallRecord({
-        customer_phone: cart.phone || '',
-        customer_email: cart.email || '',
-        customer_name: cart.name || '',
-        cart_total: parseFloat(cart.total) || 0,
-        items_json: JSON.stringify(cart.items || cart.items_text || ''),
+      await insertAbandonedCart({
+        shopify_cart_id: cart.checkout_id || '',
+        customer_name: cart.customer_name || cart.name || '',
+        customer_email: cart.customer_email || cart.email || '',
+        customer_phone: cart.customer_phone || cart.phone || '',
+        cart_total: parseFloat(cart.cart_total || cart.total || 0),
+        items_json: typeof cart.items === 'string' ? cart.items : JSON.stringify(cart.items || ''),
         checkout_url: cart.checkout_url || '',
+        abandoned_at: cart.abandoned_at || new Date().toISOString(),
       });
       imported++;
     } catch (err) {
-      console.error(`Failed to import cart for ${cart.email}:`, err.message);
+      console.error(`Failed to import cart for ${cart.customer_email || cart.email}:`, err.message);
     }
   }
 
