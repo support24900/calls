@@ -15,7 +15,8 @@ router.get('/login', (req, res) => res.render('login', { error: null }));
 
 router.post('/login', (req, res) => {
   const { password } = req.body;
-  if (password === process.env.DASHBOARD_PASSWORD) {
+  const validPasswords = [process.env.DASHBOARD_PASSWORD, process.env.DASHBOARD_PASSWORD_2].filter(Boolean);
+  if (validPasswords.includes(password)) {
     req.session.authenticated = true;
     return res.redirect('/dashboard');
   }
