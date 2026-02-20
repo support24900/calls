@@ -37,8 +37,10 @@ router.get('/', requireAuth, async (req, res) => {
 // Customers page
 router.get('/customers', requireAuth, async (req, res) => {
   const search = req.query.search || '';
-  const customers = await getAllCustomers({ search });
-  res.render('customers', { customers, search, page: 'customers' });
+  const sort = req.query.sort || 'orders';
+  const showAll = req.query.all === '1';
+  const customers = await getAllCustomers({ search, sort, buyersOnly: !showAll, limit: 200 });
+  res.render('customers', { customers, search, sort, showAll, page: 'customers' });
 });
 
 // Retention page

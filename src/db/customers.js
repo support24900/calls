@@ -1,15 +1,24 @@
 const { getDb } = require('./database');
 
-async function getAllCustomers({ search, limit = 100, offset = 0 } = {}) {
+async function getAllCustomers({ search, limit = 100, offset = 0, buyersOnly = true, sort = 'orders' } = {}) {
   const db = getDb();
   let sql = 'SELECT * FROM customers WHERE 1=1';
   const args = [];
+  if (buyersOnly) {
+    sql += ' AND total_orders > 0';
+  }
   if (search) {
     sql += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
     const s = `%${search}%`;
     args.push(s, s, s);
   }
-  sql += ' ORDER BY name ASC LIMIT ? OFFSET ?';
+  const sortMap = {
+    orders: 'total_orders DESC, CAST(total_spent AS REAL) DESC',
+    spent: 'CAST(total_spent AS REAL) DESC',
+    name: 'name ASC',
+    recent: 'last_order_date DESC',
+  };
+  sql += ` ORDER BY ${sortMap[sort] || sortMap.orders} LIMIT ? OFFSET ?`;
   args.push(limit, offset);
   const result = await db.execute({ sql, args });
   return result.rows;
