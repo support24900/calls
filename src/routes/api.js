@@ -6,6 +6,44 @@ const { triggerKlaviyoEvent, updateProfileWithCallOutcome } = require('../servic
 const { getCartRules, setCartRules } = require('../db/cartRules');
 const { getAllTickets, createTicket, updateTicket } = require('../db/retentionTickets');
 
+// POST /api/vapi/sms — Vapi tool: send SMS via Twilio during calls
+router.post('/vapi/sms', async (req, res) => {
+  try {
+    const toolCall = req.body?.message?.toolCallList?.[0];
+    if (!toolCall) {
+      return res.status(400).json({ error: 'No tool call found' });
+    }
+    
+    let args = toolCall.function?.arguments;
+    if (typeof args === 'string') args = JSON.parse(args);
+    const { phone, message: smsText } = args || {};
+    
+    if (!phone || !smsText) {
+      return res.json({ results: [{ toolCallId: toolCall.id, result: 'Missing phone or message' }] });
+    }
+    
+    const twilio = require('twilio')(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN
+    );
+    
+    await twilio.messages.create({
+      body: smsText,
+      from: '+17853908551',
+      to: phone
+    });
+    
+    return res.json({
+      results: [{ toolCallId: toolCall.id, result: `SMS sent successfully to ${phone}` }]
+    });
+  } catch (error) {
+    console.error('SMS error:', error);
+    return res.json({
+      results: [{ toolCallId: req.body?.message?.toolCallList?.[0]?.id || 'unknown', result: `Could not send SMS: ${error.message}` }]
+    });
+  }
+});
+
 // POST /api/customers/import
 router.post('/customers/import', async (req, res) => {
   try {
