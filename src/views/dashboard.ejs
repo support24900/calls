@@ -166,7 +166,7 @@
                   <div class="min-w-[140px] text-right space-y-2">
                     <span class="badge badge-<%= cart.call_status || 'pending' %>"><%= (cart.call_status || 'pending').toUpperCase() %></span>
                     <% if (cart.customer_phone) { %>
-                      <div><button onclick="triggerCall(<%= cart.id %>)" class="text-xs bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition font-medium">📞 Call Now</button></div>
+                      <div><button onclick="openCallModal(<%= cart.id %>, '<%= cart.customer_name || 'Customer' %>', '<%= cart.customer_phone %>')" class="text-xs bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 transition font-medium">📞 Call Now</button></div>
                     <% } %>
                     <% if (cart.call_recording_url) { %>
                       <audio controls preload="none" class="h-7 w-36">
@@ -187,6 +187,43 @@
     <% }); %>
   </div>
 <% } %>
+
+<!-- Call Modal -->
+<div id="callModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-bold text-gray-800">📞 Make a Call</h3>
+      <button onclick="closeCallModal()" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+    </div>
+    <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+      <div class="font-medium text-gray-800" id="callModalName"></div>
+      <div class="text-sm text-gray-500" id="callModalPhone"></div>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">🤖 Assistant (Agent)</label>
+        <select id="callAssistant" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="1fa240b4-11a1-47b1-ab46-a468d9c2ee49">Emma — Aggressive English 🇺🇸</option>
+          <option value="062d92f5-cf14-492e-85c2-750f14db97df">Sarit/שרית — Hebrew 🇮🇱</option>
+          <option value="211ff338-5b38-48bc-a305-5ed45438d30e">Ana Pena Customer Care 💆</option>
+          <option value="9e89c95c-9831-4e69-b0e7-c5a3f5eabc00">MCA Sales Agent 💼</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">📱 Call From Number</label>
+        <select id="callFromNumber" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="b84f8a12-9e25-46b7-a523-57477c52b6d9">🇮🇱 03-382-9645 (Israel)</option>
+          <option value="97c10492-a747-40b4-a586-0eee33a47b01">🇺🇸 +1-785-390-8551 (US Twilio)</option>
+          <option value="a8a12554-18ae-4573-914a-d13b75e5dc93">🇺🇸 +1-659-902-0549 (Vapi Free)</option>
+        </select>
+      </div>
+    </div>
+    <div class="mt-6 flex gap-3">
+      <button onclick="closeCallModal()" class="flex-1 px-4 py-2 border rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium">Cancel</button>
+      <button id="callModalBtn" onclick="executeCall()" class="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm font-medium">📞 Call</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (async function() {
@@ -227,15 +264,35 @@ async function saveRules() {
   setTimeout(() => msg.classList.add('hidden'), 2000);
 }
 
-async function triggerCall(cartId) {
-  if (!confirm('Trigger a call to this customer now?')) return;
-  const btn = event.target;
-  btn.disabled = true; btn.textContent = '⏳...';
+let currentCallCartId = null;
+function openCallModal(cartId, name, phone) {
+  currentCallCartId = cartId;
+  document.getElementById('callModalName').textContent = name;
+  document.getElementById('callModalPhone').textContent = phone;
+  document.getElementById('callModal').classList.remove('hidden');
+}
+function closeCallModal() {
+  document.getElementById('callModal').classList.add('hidden');
+}
+async function executeCall() {
+  const assistantId = document.getElementById('callAssistant').value;
+  const phoneNumberId = document.getElementById('callFromNumber').value;
+  const btn = document.getElementById('callModalBtn');
+  btn.disabled = true; btn.textContent = '⏳ Calling...';
   try {
-    const res = await fetch('/api/carts/' + cartId + '/trigger-call', { method: 'POST', headers: {'Content-Type':'application/json'} });
+    const res = await fetch('/api/carts/' + currentCallCartId + '/trigger-call', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ assistantId, phoneNumberId })
+    });
     const data = await res.json();
-    if (data.success) { btn.textContent = '✅ Called'; btn.className = 'text-xs bg-gray-400 text-white px-3 py-1.5 rounded-lg'; }
-    else { btn.textContent = '❌ Failed'; btn.disabled = false; }
+    if (data.success) {
+      btn.textContent = '✅ Call Started!';
+      setTimeout(() => { closeCallModal(); btn.textContent = '📞 Call'; btn.disabled = false; }, 2000);
+    } else {
+      btn.textContent = '❌ Failed: ' + (data.error || 'Unknown');
+      btn.disabled = false;
+    }
   } catch(e) { btn.textContent = '❌ Error'; btn.disabled = false; }
 }
 

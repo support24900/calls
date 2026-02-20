@@ -95,13 +95,41 @@ router.post('/carts/:id/trigger-call', async (req, res) => {
     if (!cart.customer_phone) return res.status(400).json({ error: 'No phone number for this cart' });
 
     const rules = await getCartRules();
-    const phoneNumberId = rules.phone_number_id || 'b84f8a12-9e25-46b7-a523-57477c52b6d9';
-    const assistantId = rules.assistant_id || '1fa240b4-11a1-47b1-ab46-a468d9c2ee49';
+    const phoneNumberId = req.body.phoneNumberId || rules.phone_number_id || 'b84f8a12-9e25-46b7-a523-57477c52b6d9';
+    const assistantId = req.body.assistantId || rules.assistant_id || '1fa240b4-11a1-47b1-ab46-a468d9c2ee49';
+
+    // Build assistant overrides with cart-specific info
+    const callBody = { phoneNumberId, customer: { number: cart.customer_phone, name: cart.customer_name || '' } };
+    
+    // If using inline assistant (custom prompt), build it
+    if (req.body.assistantId) {
+      callBody.assistantId = assistantId;
+    } else {
+      callBody.assistantId = assistantId;
+    }
+
+    // Pass cart items to assistant as override
+    let itemsSummary = '';
+    try {
+      const items = JSON.parse(cart.items_json || '[]');
+      itemsSummary = items.map(i => `${i.title} x${i.quantity} ($${i.price})`).join(', ');
+    } catch(e) {}
+
+    if (itemsSummary) {
+      callBody.assistantOverrides = {
+        firstMessage: undefined, // let assistant default handle it
+        variableValues: {
+          customerName: cart.customer_name || 'there',
+          cartItems: itemsSummary,
+          cartTotal: String(cart.cart_total || 0),
+        }
+      };
+    }
 
     const vapiRes = await fetch('https://api.vapi.ai/call/phone', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer 606845cb-bb9e-4fb8-8ec2-3de4fb20125d', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumberId, assistantId, customer: { number: cart.customer_phone } }),
+      body: JSON.stringify(callBody),
     });
     const data = await vapiRes.json();
     await updateCartCallStatus(Number(req.params.id), { call_status: 'called', call_date: new Date().toISOString() });
